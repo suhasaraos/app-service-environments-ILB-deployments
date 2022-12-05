@@ -1,39 +1,40 @@
 @description('The location in which the resources should be deployed.')
 param location string = resourceGroup().location
 
-@description('The vnet name where the gateway will be connected.')
+@description('The vnet name where the gateway will be connected. Eg. ASE-VNETaimoczwhjiepc')
 param vnetName string
 
-@description('The ip address prefix that gateway will use.')
-param appgwSubnetAddressPrefix string
+@description('The ip address prefix that gateway will use. Eg. 10.0.1.0/24')
+param subnetAddressWithPrefix string
 
-@description('List of applications to configure. Each element format is: { name, hostName, backendAddresses, certificate: { data, password }, probePath }')
+@description('List of applications to configure. Each element format is: { name, hostName, backendAddresses, certificate: { data, password }, probePath } Eg. [{ "name": "ASE-aimoczwhjiepc" }]')
 param appgwApplications array
 
 @description('Comma separated application gateway zones.')
 param appgwZones string = ''
 
-var appgwName_var = 'appgw'
-var appgwId = resourceId('Microsoft.Network/applicationGateways', appgwName_var)
-var appgwSubnetName = 'appgw-subnet-${appgwName_var}'
-var appgwSubnetId = vnetName_appgwSubnetName.id
-var appgwNSGName_var = '${vnetName}-APPGW-NSG'
-var appgwPublicIpAddressName_var = 'AppGatewayIp'
-var appGwPublicIpAddressId = appgwPublicIpAddressName.id
-var appgwIpConfigName = '${appgwName_var}-ipconfig'
-var appgwFrontendName = '${appgwName_var}-frontend'
-var appgwBackendName = '${appgwName_var}-backend-'
-var appgwHttpSettingsName = '${appgwName_var}-httpsettings-'
-var appgwHealthProbeName = '${appgwName_var}-healthprobe-'
-var appgwListenerName = '${appgwName_var}-listener-'
-var appgwSslCertificateName = '${appgwName_var}-ssl-'
-var appgwRouteRulesName = '${appgwName_var}-routerules-'
+var appGatewayName = '${vnetName}-appgw'
+var subnetNameWithoutSegment = '${appGatewayName}-subnet'
+var subnetName = '${vnetName}/${subnetNameWithoutSegment}'
+var appgwId = resourceId('Microsoft.Network/applicationGateways', appGatewayName)
+var appgwSubnetId = resourceId('Microsoft.Network/virtualNetworks/subnets', vnetName, subnetNameWithoutSegment)
+var appgwNSGName = '${vnetName}-appgw-NSG'
+var appgwPublicIpAddressName = '${vnetName}-appgw-Ip'
+var appGwPublicIpAddressId = resourceId('Microsoft.Network/publicIPAddresses',appgwPublicIpAddressName)
+var appgwIpConfigName = '${appGatewayName}-ipconfig'
+var appgwFrontendName = '${appGatewayName}-frontend'
+var appgwBackendName = '${appGatewayName}-backend-'
+var appgwHttpSettingsName = '${appGatewayName}-httpsettings-'
+var appgwHealthProbeName = '${appGatewayName}-healthprobe-'
+var appgwListenerName = '${appGatewayName}-listener-'
+var appgwSslCertificateName = '${appGatewayName}-ssl-'
+var appgwRouteRulesName = '${appGatewayName}-routerules-'
 var appgwAutoScaleMinCapacity = 0
 var appgwAutoScaleMaxCapacity = 10
 var appgwZonesArray = (empty(appgwZones) ? json('null') : split(appgwZones, ','))
 
-resource appgwPublicIpAddressName 'Microsoft.Network/publicIPAddresses@2022-05-01' = {
-  name: appgwPublicIpAddressName_var
+resource publicIPAddress 'Microsoft.Network/publicIPAddresses@2022-05-01' = {
+  name: appgwPublicIpAddressName
   location: location
   sku: {
     name: 'Standard'
@@ -43,11 +44,11 @@ resource appgwPublicIpAddressName 'Microsoft.Network/publicIPAddresses@2022-05-0
   }
 }
 
-resource appgwNSGName 'Microsoft.Network/networkSecurityGroups@2022-05-01' = {
-  name: appgwNSGName_var
+resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2022-05-01' = {
+  name: appgwNSGName
   location: location
   tags: {
-    displayName: appgwNSGName_var
+    displayName: appgwNSGName
   }
   properties: {
     securityRules: [
@@ -90,7 +91,7 @@ resource appgwNSGName 'Microsoft.Network/networkSecurityGroups@2022-05-01' = {
             '443'
           ]
           sourceAddressPrefix: 'Internet'
-          destinationAddressPrefix: appgwSubnetAddressPrefix
+          destinationAddressPrefix: subnetAddressWithPrefix
           access: 'Allow'
           priority: 202
           direction: 'Inbound'
@@ -100,17 +101,16 @@ resource appgwNSGName 'Microsoft.Network/networkSecurityGroups@2022-05-01' = {
   }
 }
 
-resource vnetName_appgwSubnetName 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = {
-  name: '${vnetName}/${appgwSubnetName}'
-  //location: location
+resource appGatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = {
+  name: subnetName
   properties: {
-    addressPrefix: appgwSubnetAddressPrefix
-    networkSecurityGroup: { id: appgwNSGName.id, location: location }
+    addressPrefix: subnetAddressWithPrefix
+    networkSecurityGroup: { id: networkSecurityGroup.id, location: location }
   }
 }
 
-resource appgwName 'Microsoft.Network/applicationGateways@2022-05-01' = {
-  name: appgwName_var
+resource appGateway 'Microsoft.Network/applicationGateways@2022-05-01' = {
+  name: appGatewayName
   location: location
   zones: appgwZonesArray
   tags: {
@@ -161,7 +161,7 @@ resource appgwName 'Microsoft.Network/applicationGateways@2022-05-01' = {
     enableHttp2: false
     backendAddressPools: [for item in appgwApplications: {
       name: '${appgwBackendName}${item.name}'
-      properties: {
+      properties: {   
         backendAddresses: item.backendAddresses
       }
     }]
@@ -198,6 +198,7 @@ resource appgwName 'Microsoft.Network/applicationGateways@2022-05-01' = {
     requestRoutingRules: [for item in appgwApplications: {
       name: '${appgwRouteRulesName}${item.name}'
       properties: {
+        priority: item.routingPriority
         ruleType: 'Basic'
         httpListener: {
           id: '${appgwId}/httpListeners/${appgwListenerName}${item.name}'
@@ -237,4 +238,4 @@ resource appgwName 'Microsoft.Network/applicationGateways@2022-05-01' = {
   }
 }
 
-output appGwPublicIpAddress string = appgwPublicIpAddressName.properties.ipAddress
+output appGwPublicIpAddress string = publicIPAddress.properties.ipAddress
