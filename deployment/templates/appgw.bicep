@@ -14,7 +14,7 @@ param appgwApplications array
 param appgwZones string = ''
 
 var appgwName_var = 'appgw'
-//var appgwId = resourceId('',appgwName)
+var appgwId = resourceId('Microsoft.Network/applicationGateways', appgwName_var)
 var appgwSubnetName = 'appgw-subnet-${appgwName_var}'
 var appgwSubnetId = vnetName_appgwSubnetName.id
 var appgwNSGName_var = '${vnetName}-APPGW-NSG'
@@ -32,7 +32,7 @@ var appgwAutoScaleMinCapacity = 0
 var appgwAutoScaleMaxCapacity = 10
 var appgwZonesArray = (empty(appgwZones) ? json('null') : split(appgwZones, ','))
 
-resource appgwPublicIpAddressName 'Microsoft.Network/publicIPAddresses@2022-01-01' = {
+resource appgwPublicIpAddressName 'Microsoft.Network/publicIPAddresses@2022-05-01' = {
   name: appgwPublicIpAddressName_var
   location: location
   sku: {
@@ -43,7 +43,7 @@ resource appgwPublicIpAddressName 'Microsoft.Network/publicIPAddresses@2022-01-0
   }
 }
 
-resource appgwNSGName 'Microsoft.Network/networkSecurityGroups@2022-01-01' = {
+resource appgwNSGName 'Microsoft.Network/networkSecurityGroups@2022-05-01' = {
   name: appgwNSGName_var
   location: location
   tags: {
@@ -100,16 +100,16 @@ resource appgwNSGName 'Microsoft.Network/networkSecurityGroups@2022-01-01' = {
   }
 }
 
-resource vnetName_appgwSubnetName 'Microsoft.Network/virtualNetworks/subnets@2022-01-01' = {
+resource vnetName_appgwSubnetName 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = {
   name: '${vnetName}/${appgwSubnetName}'
   //location: location
   properties: {
     addressPrefix: appgwSubnetAddressPrefix
-    networkSecurityGroup: { id: appgwNSGName.id }
+    networkSecurityGroup: { id: appgwNSGName.id, location: location }
   }
 }
 
-resource appgwName 'Microsoft.Network/applicationGateways@2022-01-01' = {
+resource appgwName 'Microsoft.Network/applicationGateways@2022-05-01' = {
   name: appgwName_var
   location: location
   zones: appgwZonesArray
@@ -174,7 +174,7 @@ resource appgwName 'Microsoft.Network/applicationGateways@2022-01-01' = {
         pickHostNameFromBackendAddress: true
         requestTimeout: 20
         probe: {
-          id: '${resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appgwName_var)}/probes/${appgwHealthProbeName}${item.name}'
+          id: '${appgwId}/probes/${appgwHealthProbeName}${item.name}'
         }
       }
     }]
@@ -182,14 +182,14 @@ resource appgwName 'Microsoft.Network/applicationGateways@2022-01-01' = {
       name: '${appgwListenerName}${item.name}'
       properties: {
         frontendIPConfiguration: {
-          id: '${resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appgwName_var)}/frontendIPConfigurations/${appgwFrontendName}'
+          id: '${appgwId}/frontendIPConfigurations/${appgwFrontendName}'
         }
         frontendPort: {
-          id: '${resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appgwName_var)}/frontendPorts/port_443'
+          id: '${appgwId}/frontendPorts/port_443'
         }
         protocol: 'Https'
         sslCertificate: {
-          id: '${resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appgwName_var)}/sslCertificates/${appgwSslCertificateName}${item.name}'
+          id: '${appgwId}/sslCertificates/${appgwSslCertificateName}${item.name}'
         }
         hostName: item.hostName
         requireServerNameIndication: true
@@ -200,13 +200,13 @@ resource appgwName 'Microsoft.Network/applicationGateways@2022-01-01' = {
       properties: {
         ruleType: 'Basic'
         httpListener: {
-          id: '${resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appgwName_var)}/httpListeners/${appgwListenerName}${item.name}'
+          id: '${appgwId}/httpListeners/${appgwListenerName}${item.name}'
         }
         backendAddressPool: {
-          id: '${resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appgwName_var)}/backendAddressPools/${appgwBackendName}${item.name}'
+          id: '${appgwId}/backendAddressPools/${appgwBackendName}${item.name}'
         }
         backendHttpSettings: {
-          id: '${resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appgwName_var)}/backendHttpSettingsCollection/${appgwHttpSettingsName}${item.name}'
+          id: '${appgwId}/backendHttpSettingsCollection/${appgwHttpSettingsName}${item.name}'
         }
       }
     }]
