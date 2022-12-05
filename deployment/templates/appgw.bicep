@@ -1,13 +1,13 @@
 @description('The location in which the resources should be deployed.')
 param location string = resourceGroup().location
 
-@description('The vnet name where the gateway will be connected. Eg. ASE-VNETaimoczwhjiepc')
+@description('The vnet name where the gateway will be connected.')
 param vnetName string
 
-@description('The ip address prefix that gateway will use. Eg. 10.0.1.0/24')
+@description('The ip address prefix that gateway will use.')
 param subnetAddressWithPrefix string
 
-@description('List of applications to configure. Each element format is: { name, hostName, backendAddresses, certificate: { data, password }, probePath } Eg. [{ "name": "ASE-aimoczwhjiepc" }]')
+@description('List of applications to configure. Each element format is: { name, hostName, backendAddresses, certificate: { data, password }, probePath }')
 param appgwApplications array
 
 @description('Comma separated application gateway zones.')
